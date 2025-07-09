@@ -1,23 +1,27 @@
 const express = require("express");
 const { createProxyMiddleware } = require("http-proxy-middleware");
-
 const app = express();
 
-app.use(
-  "/proxy",
-  createProxyMiddleware({
-    target: "https://wikipedia.org", // 기본 대상 URL은 무시됨
-    changeOrigin: true,
-    pathRewrite: {
-      "^/proxy/": "", // /proxy/ 이후의 경로를 실제 대상 URL로 변환
-    },
-    onProxyReq(proxyReq, req, res) {
-      proxyReq.setHeader("User-Agent", "Mozilla/5.0"); // 위키 같은 곳 우회
-    },
-  })
-);
+// 프록시 경로: 예) /proxy/https://example.com
+app.use("/proxy/", (req, res, next) => {
+  const targetUrl = req.url.slice(1); // "/https://example.com" -> "https://example.com"
+  if (!/^https?:\/\//.test(targetUrl)) {
+    return res.status(400).send("❌ 유효한 URL이 아닙니다.");
+  }
 
-const PORT = process.env.PORT || 3000;
+  createProxyMiddleware({
+    target: targetUrl,
+    changeOrigin: true,
+    pathRewrite: (path, req) => {
+      return ""; // 원래 경로 유지
+    },
+    onProxyReq: (proxyReq, req, res) => {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+    }
+  })(req, res, next);
+});
+
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`Proxy running at http://localhost:${PORT}/proxy/`);
+  console.log(`🌐 Universal proxy running on port ${PORT}`);
 });
