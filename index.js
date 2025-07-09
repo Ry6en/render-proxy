@@ -1,33 +1,23 @@
 const express = require("express");
-const unblocker = require("unblocker");
-const https = require("https");
+const { createProxyMiddleware } = require("http-proxy-middleware");
 
 const app = express();
 
 app.use(
-  unblocker({
-    prefix: "/proxy/",
-    responseMiddleware: [
-      (data, req, res, next) => {
-        res.setHeader("Access-Control-Allow-Origin", "*");
-        next();
-      },
-    ],
+  "/proxy",
+  createProxyMiddleware({
+    target: "https://wikipedia.org", // 기본 대상 URL은 무시됨
+    changeOrigin: true,
+    pathRewrite: {
+      "^/proxy/": "", // /proxy/ 이후의 경로를 실제 대상 URL로 변환
+    },
+    onProxyReq(proxyReq, req, res) {
+      proxyReq.setHeader("User-Agent", "Mozilla/5.0"); // 위키 같은 곳 우회
+    },
   })
 );
 
-// 테스트용
-app.get("/test", (req, res) => {
-  https
-    .get("https://example.com", (r) => {
-      res.send(" 외부 연결 성공");
-    })
-    .on("error", (err) => {
-      res.send("❌ 연결 실패: " + err.message);
-    });
-});
-
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("Server started on port", PORT);
+  console.log(`Proxy running at http://localhost:${PORT}/proxy/`);
 });
